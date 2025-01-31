@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
 public class PrivateWeldInitiatorTest {
 
     @WeldSetup
-    private WeldInitiator weld = WeldInitiator
+    private static WeldInitiator weld = WeldInitiator
             .of(new Weld()
                     .addBeanClass(Foo.class));
 

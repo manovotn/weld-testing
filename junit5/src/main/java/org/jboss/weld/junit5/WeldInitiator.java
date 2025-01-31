@@ -200,19 +200,23 @@ public class WeldInitiator extends AbstractWeldInitiator {
         super.shutdownWeldContainer();
     }
 
-    WeldContainer initWeld(Object testInstance) {
+    WeldContainer initWeld(Class<?> testClass) {
         Weld weld = WeldInitiator.this.weld;
+
         if (weld == null) {
             // null in case of fromTestPackage() was used
-            weld = createWeld().addPackage(false, testInstance.getClass());
+            weld = createWeld().addPackage(false, testClass);
         }
+
+        // add test class as a bean if it's a top level class
+        if (testClass.getEnclosingClass() == null) {
+            weld.addBeanClass(testClass);
+        }
+
+        // Register extension that makes test instances @Singleton instead of default @Dependent
+        weld.addExtension(new TestClassRegisteringExtension<>(testClass));
+
 
         return initWeldContainer(weld);
-    }
-
-    void addObjectsToInjectInto(Set<Object> instancesToInjectInto) {
-        for (Object o : instancesToInjectInto) {
-            instancesToInject.add(createToInject(o));
-        }
     }
 }

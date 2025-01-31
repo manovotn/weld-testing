@@ -41,7 +41,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class AddPassivatingBeanTest {
 
     @WeldSetup
-    public WeldInitiator weld = WeldInitiator.from(List.class).addBeans(createListBean()).activate(SessionScoped.class).build();
+    public static WeldInitiator weld = WeldInitiator.from(List.class).addBeans(createListBean()).activate(SessionScoped.class).build();
 
     @SuppressWarnings("serial")
     static Bean<?> createListBean() {

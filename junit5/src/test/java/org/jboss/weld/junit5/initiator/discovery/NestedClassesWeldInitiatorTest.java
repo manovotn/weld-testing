@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 public class NestedClassesWeldInitiatorTest {
 
     @WeldSetup
-    private WeldInitiator outerWeld = WeldInitiator.of(Foo.class);
+    private static WeldInitiator outerWeld = WeldInitiator.of(Foo.class);
 
     @Inject
     Foo outerFoo;
@@ -60,7 +60,7 @@ public class NestedClassesWeldInitiatorTest {
     class NestedWithInitiatorTest {
 
         @WeldSetup
-        private WeldInitiator innerWeld = WeldInitiator.of(Foo.class, Bar.class);
+        public WeldInitiator innerWeld = WeldInitiator.of(Foo.class, Bar.class);
 
         @Inject
         Foo innerFoo;

@@ -31,7 +31,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ContainerNotRunningTest {
 
     @WeldSetup
-    public WeldInitiator weld = WeldInitiator.of(WeldInitiator.createWeld().beanClasses(Foo.class));
+    public static WeldInitiator weld = WeldInitiator.of(WeldInitiator.createWeld().beanClasses(Foo.class));
 
     @Test
     public void testFoo() {

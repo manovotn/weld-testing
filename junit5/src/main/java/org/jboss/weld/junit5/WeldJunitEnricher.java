@@ -42,11 +42,13 @@ public interface WeldJunitEnricher {
      * {@link Weld#initialize()} and {@link WeldInitiator.Builder#build()} methods must never be invoked in an enricher!
      * </p>
      *
-     * @param testInstance
+     * @param testClass
      * @param context
      * @param weld
      * @param weldInitiatorBuilder
      */
-    void enrich(Object testInstance, ExtensionContext context, Weld weld, Builder weldInitiatorBuilder);
+    // TODO the change from Object to Class<?> is a breaking change!
+    // TODO usability-wise it shouldn't be such a problem but it is still breaking
+    void enrich(Class<?> testClass, ExtensionContext context, Weld weld, Builder weldInitiatorBuilder);
 
 }

@@ -38,7 +38,7 @@ import org.junit.jupiter.api.parallel.Isolated;
 public class PerClassLifecycleTest {
 
     @WeldSetup
-    public WeldInitiator initiator = WeldInitiator.of(new Weld(String.valueOf(System.nanoTime()))
+    public static WeldInitiator initiator = WeldInitiator.of(new Weld(String.valueOf(System.nanoTime()))
             .disableDiscovery().addBeanClass(PlainBean.class));
 
     String containerId = null;

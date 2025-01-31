@@ -31,7 +31,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class BeanManagerTest {
 
     @WeldSetup
-    public WeldInitiator weld = WeldInitiator.of(Foo.class);
+    public static WeldInitiator weld = WeldInitiator.of(Foo.class);
 
     @Test
     public void testFooBean() {

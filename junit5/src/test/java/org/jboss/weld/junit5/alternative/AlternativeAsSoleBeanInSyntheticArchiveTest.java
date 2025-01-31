@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 public class AlternativeAsSoleBeanInSyntheticArchiveTest {
 
     @WeldSetup
-    public WeldInitiator weld = WeldInitiator.from(WeldInitiator.createWeld())
+    public static WeldInitiator weld = WeldInitiator.from(WeldInitiator.createWeld())
             .addBeans(createSelectedAlternativeBean()).build();
 
     static Bean<?> createSelectedAlternativeBean() {

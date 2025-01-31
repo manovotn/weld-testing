@@ -133,7 +133,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 class MyNewTest {
 
     @WeldSetup
-    public WeldInitiator weld = WeldInitiator.of(Some.class);
+    public static WeldInitiator weld = WeldInitiator.of(Some.class);
 
     @Test
     public void testFoo() {...}
@@ -399,7 +399,7 @@ hierarchy.
 ```java
 abstract class GenericTest {
   @WeldSetup
-  protected WeldInitiator weldInitiator = WeldInitiator.of(Foo.class);
+  protected static WeldInitiator weldInitiator = WeldInitiator.of(Foo.class);
 }
 
 @EnableWeld

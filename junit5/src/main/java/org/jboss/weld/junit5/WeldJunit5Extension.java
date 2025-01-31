@@ -16,47 +16,54 @@
  */
 package org.jboss.weld.junit5;
 
+import static org.jboss.weld.junit5.ExtensionContextUtils.getAutoCloseableFromStore;
 import static org.jboss.weld.junit5.ExtensionContextUtils.getContainerFromStore;
 import static org.jboss.weld.junit5.ExtensionContextUtils.getEnrichersFromStore;
 import static org.jboss.weld.junit5.ExtensionContextUtils.getExplicitInjectionInfoFromStore;
 import static org.jboss.weld.junit5.ExtensionContextUtils.getInitiatorFromStore;
+import static org.jboss.weld.junit5.ExtensionContextUtils.setAutoCloseableToStore;
 import static org.jboss.weld.junit5.ExtensionContextUtils.setContainerToStore;
 import static org.jboss.weld.junit5.ExtensionContextUtils.setEnrichersToStore;
 import static org.jboss.weld.junit5.ExtensionContextUtils.setExplicitInjectionInfoToStore;
 import static org.jboss.weld.junit5.ExtensionContextUtils.setInitiatorToStore;
 import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_CLASS;
-import static org.junit.jupiter.api.TestInstance.Lifecycle.PER_METHOD;
 
 import java.lang.annotation.Annotation;
+import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.security.AccessController;
-import java.security.PrivilegedAction;
+import java.lang.reflect.Modifier;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.ServiceLoader;
 import java.util.stream.Collectors;
 
+import jakarta.enterprise.inject.AmbiguousResolutionException;
+import jakarta.enterprise.inject.UnsatisfiedResolutionException;
 import jakarta.enterprise.inject.spi.BeanManager;
 
 import org.jboss.weld.environment.se.Weld;
+import org.jboss.weld.environment.se.WeldContainer;
 import org.jboss.weld.inject.WeldInstance;
 import org.jboss.weld.util.collections.ImmutableList;
 import org.junit.jupiter.api.RepetitionInfo;
 import org.junit.jupiter.api.TestInfo;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.TestReporter;
-import org.junit.jupiter.api.extension.AfterAllCallback;
-import org.junit.jupiter.api.extension.AfterEachCallback;
 import org.junit.jupiter.api.extension.BeforeAllCallback;
-import org.junit.jupiter.api.extension.BeforeEachCallback;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.api.extension.ParameterContext;
 import org.junit.jupiter.api.extension.ParameterResolutionException;
 import org.junit.jupiter.api.extension.ParameterResolver;
+import org.junit.jupiter.api.extension.TestInstanceFactory;
+import org.junit.jupiter.api.extension.TestInstanceFactoryContext;
+import org.junit.jupiter.api.extension.TestInstancePreConstructCallback;
+import org.junit.jupiter.api.extension.TestInstancePreDestroyCallback;
+import org.junit.jupiter.api.extension.TestInstantiationException;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 
@@ -90,8 +97,8 @@ import org.junit.jupiter.params.ParameterizedTest;
  * @see EnableWeld
  * @see WeldJunitEnricher
  */
-public class WeldJunit5Extension implements AfterAllCallback, BeforeAllCallback,
-        BeforeEachCallback, AfterEachCallback, ParameterResolver {
+public class WeldJunit5Extension implements BeforeAllCallback, ParameterResolver, TestInstanceFactory,
+        TestInstancePreDestroyCallback, TestInstancePreConstructCallback {
 
     // global system property
     public static final String GLOBAL_EXPLICIT_PARAM_INJECTION = "org.jboss.weld.junit5.explicitParamInjection";
@@ -124,38 +131,53 @@ public class WeldJunit5Extension implements AfterAllCallback, BeforeAllCallback,
 
     @Override
     public void beforeAll(ExtensionContext context) {
+        // store information about explicit param injection
+        storeExplicitParamResolutionInformation(context);
+
+        // find and load all Weld Enrichers
         // we are storing them into root context, hence only needs to be done once per test suite
         if (getEnrichersFromStore(context) == null) {
             ImmutableList.Builder<WeldJunitEnricher> enrichers = ImmutableList.builder();
             ServiceLoader.load(WeldJunitEnricher.class).forEach(enrichers::add);
             setEnrichersToStore(context, enrichers.build());
         }
-        // if the lifecycle is per-class, then we want to start container here
-        startWeldContainerIfAppropriate(PER_CLASS, context);
     }
 
     @Override
-    public void beforeEach(ExtensionContext extensionContext) {
-        startWeldContainerIfAppropriate(PER_METHOD, extensionContext);
-    }
-
-    @Override
-    public void afterEach(ExtensionContext context) {
-        if (determineTestLifecycle(context).equals(PER_METHOD)) {
-            WeldInitiator initiator = getInitiatorFromStore(context);
-            if (initiator != null) {
-                initiator.shutdownWeld();
+    public void preConstructTestInstance(TestInstanceFactoryContext factoryContext, ExtensionContext context) throws Exception {
+        if (!factoryContext.getOuterInstance().isEmpty()) {
+            // this is a nested test; we attempt to reuse parent ExtensionContext and take container from there
+            if (context.getParent().isEmpty()) {
+                throw new IllegalStateException("Nested test " + factoryContext.getTestClass() + " with an ExtensionContext that has no parent context is illegal.");
             }
+            ExtensionContext parentContext = context.getParent().get();
+            WeldContainer containerFromStore = getContainerFromStore(parentContext);
+            WeldInitiator initiatorFromStore = getInitiatorFromStore(parentContext);
+            if (containerFromStore == null || initiatorFromStore == null) {
+                // this is a nested test but its parent class is not a JUnit test class - we need to boot fresh container
+                startWeldContainer(context);
+            } else {
+                setContainerToStore(context, containerFromStore);;
+                setInitiatorToStore(context, initiatorFromStore);
+            }
+        } else {
+            startWeldContainer(context);
         }
     }
 
     @Override
-    public void afterAll(ExtensionContext context) {
-        if (determineTestLifecycle(context).equals(PER_CLASS)) {
-            WeldInitiator initiator = getInitiatorFromStore(context);
-            if (initiator != null) {
-                initiator.shutdownWeld();
-            }
+    public void preDestroyTestInstance(ExtensionContext context) throws Exception {
+        // NOTE: unlike its pre construct counterpart, this method is called only once per ExtensionContext!
+        // This means that for a combination of enclosing and nested class, we still get only a single invocation
+        // The TestInstancePreDestroyCallback#preDestroyTestInstances is an intended way of handling
+        // all instances properly if need be
+        AutoCloseable autoCloseable = getAutoCloseableFromStore(context);
+        if (autoCloseable != null) {
+            autoCloseable.close();
+        }
+        WeldInitiator initiator = getInitiatorFromStore(context);
+        if (initiator != null) {
+            initiator.shutdownWeld();
         }
     }
 
@@ -261,65 +283,56 @@ public class WeldJunit5Extension implements AfterAllCallback, BeforeAllCallback,
         return pc.getDeclaringExecutable().getAnnotation(ParameterizedTest.class) != null ? true : false;
     }
 
-    private TestInstance.Lifecycle determineTestLifecycle(ExtensionContext ec) {
-        // check the test for org.junit.jupiter.api.TestInstance annotation
-        TestInstance annotation = ec.getRequiredTestClass().getAnnotation(TestInstance.class);
-        if (annotation != null) {
-            return annotation.value();
-        } else {
-            return TestInstance.Lifecycle.PER_METHOD;
+    private void startWeldContainer(ExtensionContext context) {
+        Class<?> testClass = context.getRequiredTestClass();
+
+        // store info about explicit param injection, either from global settings or from annotation on the test class
+        storeExplicitParamResolutionInformation(context);
+
+        // iterate through the test class hierarchy, the enclosing instance (in case of nested tests),
+        // the enclosing instance of the enclosing instance (in cases of twice nested tests) and so on
+        // until we find a WeldInitiator
+        final List<Class<?>> allTestClasses = new ArrayList<>();
+        allTestClasses.add(testClass);
+        Class<?> enclosingClass = testClass.getEnclosingClass();
+        while (enclosingClass != null) {
+            allTestClasses.add(enclosingClass);
+            enclosingClass = enclosingClass.getEnclosingClass();
         }
+        Collections.reverse(allTestClasses); // so that we can iterate from inner-most to outer-most
+        WeldInitiator initiator = allTestClasses.stream()
+                .map(this::findInitiatorInInstance)
+                .filter(Objects::nonNull)
+                .findFirst()
+                .orElseGet(() -> getDefaultInitiator(context, testClass));
+        setInitiatorToStore(context, initiator);
+
+        // and finally, init Weld
+        setContainerToStore(context, initiator.initWeld(testClass));
     }
 
-    private void startWeldContainerIfAppropriate(TestInstance.Lifecycle expectedLifecycle, ExtensionContext context) {
-        // if the lifecycle is what we expect it to be, start Weld container
-        if (determineTestLifecycle(context).equals(expectedLifecycle)) {
-            Object testInstance = context.getRequiredTestInstance();
-
-            // store info about explicit param injection, either from global settings or from annotation on the test class
-            storeExplicitParamResolutionInformation(context);
-
-            // iterate through the testInstance, the enclosing instance (in case of nested tests),
-            // the enclosing instance of the enclosing instance (in cases of twice nested tests) and so on
-            // until we find a WeldInitiator
-            final List<Object> allTestInstances = new ArrayList<>(context.getRequiredTestInstances().getAllInstances());
-            Collections.reverse(allTestInstances); // so we can iterate from inner-most to outer-most
-            WeldInitiator initiator = allTestInstances.stream()
-                    .map(this::findInitiatorInInstance)
-                    .filter(Objects::nonNull)
-                    .findFirst()
-                    .orElseGet(() -> getDefaultInitiator(context, testInstance));
-            setInitiatorToStore(context, initiator);
-
-            // this ensures the test class is injected into
-            // in case of nested tests, this also injects into any outer classes
-            initiator.addObjectsToInjectInto(new HashSet<>(allTestInstances));
-
-            // and finally, init Weld
-            setContainerToStore(context, initiator.initWeld(testInstance));
-        }
-    }
-
-    private WeldInitiator findInitiatorInInstance(Object testInstance) {
+    private WeldInitiator findInitiatorInInstance(Class<?> testClass) {
         // all found fields which are WeldInitiator and have @WeldSetup annotation
         List<Field> foundInitiatorFields = new ArrayList<>();
         WeldInitiator initiator = null;
         // We will go through class hierarchy in search of @WeldSetup field (even private)
-        for (Class<?> clazz = testInstance.getClass(); clazz != null; clazz = clazz.getSuperclass()) {
+        for (Class<?> clazz = testClass; clazz != null; clazz = clazz.getSuperclass()) {
             // Find @WeldSetup field using getDeclaredFields() - this allows even for private fields
             for (Field field : clazz.getDeclaredFields()) {
                 if (field.isAnnotationPresent(WeldSetup.class)) {
+                    if (!Modifier.isStatic(field.getModifiers())) {
+                        // we cannot support non-static fields if we want to be able to provide test instances
+                        throw new IllegalStateException("Fields annotated with @WeldSetup must be declared static!");
+                    }
                     Object fieldInstance;
                     try {
-                        fieldInstance = field.get(testInstance);
+                        // we can use null as argument because we know it is a static field and the arg is ignored
+                        fieldInstance = field.get(null);
                     } catch (IllegalAccessException e) {
-                        // In case we cannot get to the field, we need to set accessibility as well
-                        AccessController.doPrivileged((PrivilegedAction<Object>) () -> {
-                            field.setAccessible(true);
-                            return null;
-                        });
+                        // inaccessible, retry while forcibly making accessible
+                        field.setAccessible(true);
                         try {
-                            fieldInstance = field.get(testInstance);
+                            fieldInstance = field.get(null);
                         } catch (IllegalAccessException e2) {
                             // we should never get to this point, because setAccessible would have thrown earlier if access could
                             // not be granted.
@@ -330,11 +343,10 @@ public class WeldJunit5Extension implements AfterAllCallback, BeforeAllCallback,
                         initiator = (WeldInitiator) fieldInstance;
                         foundInitiatorFields.add(field);
                     } else {
-                        // Field with other value than WeldInitiator was annotated with @WeldSetup
+                        // Field with other type than WeldInitiator was annotated with @WeldSetup
                         throw new IllegalStateException("@WeldSetup annotation should only be used on a field with a "
-                                + "WeldInitiator value but was found on field " + field.getName() + "with a "
-                                + ((fieldInstance == null) ? "null" : fieldInstance.getClass())
-                                + " value which is declared in class " + field.getDeclaringClass());
+                                + "WeldInitiator type but was found on field " + field.getName() + " with a "
+                                + field.getType() + " type, declared in class " + field.getDeclaringClass());
                     }
                 }
             }
@@ -356,7 +368,7 @@ public class WeldJunit5Extension implements AfterAllCallback, BeforeAllCallback,
         return initiator;
     }
 
-    private WeldInitiator getDefaultInitiator(ExtensionContext context, Object testInstance) {
+    private WeldInitiator getDefaultInitiator(ExtensionContext context, Class<?> testClass) {
 
         Weld weld = WeldInitiator.createWeld();
         WeldInitiator.Builder builder = WeldInitiator.from(weld);
@@ -367,7 +379,7 @@ public class WeldJunit5Extension implements AfterAllCallback, BeforeAllCallback,
         for (WeldJunitEnricher enricher : getEnrichersFromStore(context)) {
             String property = System.getProperty(enricher.getClass().getName());
             if (property == null || Boolean.parseBoolean(property)) {
-                enricher.enrich(testInstance, context, weld, builder);
+                enricher.enrich(testClass, context, weld, builder);
             }
         }
 
@@ -376,5 +388,50 @@ public class WeldJunit5Extension implements AfterAllCallback, BeforeAllCallback,
 
     protected void validateInitiator(List<Field> foundInitiatorFields) {
         // a found initiator is always good for this variant
+    }
+
+    @Override
+    public Object createTestInstance(TestInstanceFactoryContext factoryContext, ExtensionContext extensionContext) throws TestInstantiationException {
+        WeldContainer containerFromStore = getContainerFromStore(extensionContext);
+        if (containerFromStore == null) {
+            // Should be detected earlier but we still check it here
+            throw new IllegalStateException("Cannot create test class instance, WeldContainer was not yet started!");
+        }
+
+        Optional<Object> outerInstance = factoryContext.getOuterInstance();
+        if (!outerInstance.isEmpty()) {
+            // CDI cannot handle nested classes as beans by definition
+            // we fall back to primitive object creation and expect a single no-arg ctor (no-arg for nested class will have outer class as its param)
+            Constructor<?>[] declaredConstructors = factoryContext.getTestClass().getDeclaredConstructors();
+            if (declaredConstructors.length != 1 || declaredConstructors[0].getParameterCount() != 1) {
+                throw new IllegalStateException("A nested test class " + factoryContext.getTestClass() + " needs to a single no-args constructor.");
+            }
+            try {
+                Constructor<?> declaredConstructor = declaredConstructors[0];
+                declaredConstructor.setAccessible(true);
+                Object testInstance = declaredConstructor.newInstance(outerInstance.get());
+                // The container is already running, but we need to inject into this new instance
+                // The reference to closable needs to be passed to the Store to be closed at a later time
+                try {
+                    // injecting into non-contextual can yield some bean resolution exception - catch, shutdown container, rethrow
+                    setAutoCloseableToStore(extensionContext, getInitiatorFromStore(extensionContext).injectNonContextual(testInstance));
+                } catch (Exception e) {
+                    getInitiatorFromStore(extensionContext).shutdownWeld();
+                    throw new TestInstantiationException("Weld was unable to inject into non contextual instance (nested test class instance) - " + factoryContext.getTestClass(), e);
+                }
+                return testInstance;
+            } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
+                throw new TestInstantiationException("Unable to instantiate nested class " + factoryContext.getTestClass(), e);
+            }
+        } else {
+            try {
+                return containerFromStore.select(factoryContext.getTestClass()).get();
+            } catch (UnsatisfiedResolutionException | AmbiguousResolutionException e) {
+                // shutdown container
+                getInitiatorFromStore(extensionContext).shutdownWeld();
+                // rethrow exception
+                throw new TestInstantiationException("Weld container was unable to retrieve bean for test class " + factoryContext.getTestClass(), e);
+            }
+        }
     }
 }

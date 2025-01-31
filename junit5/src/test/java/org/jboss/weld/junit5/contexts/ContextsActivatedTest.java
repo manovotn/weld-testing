@@ -35,7 +35,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class ContextsActivatedTest {
 
     @WeldSetup
-    public WeldInitiator weld = WeldInitiator.from(Foo.class, Oof.class, RequestScopedProducer.class)
+    public static WeldInitiator weld = WeldInitiator.from(Foo.class, Oof.class, RequestScopedProducer.class)
             .activate(RequestScoped.class, SessionScoped.class).build();
 
     @Inject

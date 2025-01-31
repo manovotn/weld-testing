@@ -52,7 +52,7 @@ public class AddBeanTest {
     private static final AtomicInteger SEQUENCE = new AtomicInteger(0);
 
     @WeldSetup
-    public WeldInitiator weld = WeldInitiator.from(Blue.class)
+    public static WeldInitiator weld = WeldInitiator.from(Blue.class)
             .addBeans(MockBean.of(mock(MyService.class), MyService.class))
             .addBeans(MockBean.read(BlueToDiscover.class).scope(Dependent.class).build())
             .addBeans(createListBean(), createSequenceBean(), createIdSupplierBean())

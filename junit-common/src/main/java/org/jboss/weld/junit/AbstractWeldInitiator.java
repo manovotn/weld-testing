@@ -72,6 +72,7 @@ public abstract class AbstractWeldInitiator implements Instance<Object>, Contain
 
     protected final Weld weld;
 
+    // This is longer used by JUnit 5 but JUnit 4 extension still uses it
     protected final List<ToInject> instancesToInject;
 
     protected final Set<Class<? extends Annotation>> scopesToActivate;

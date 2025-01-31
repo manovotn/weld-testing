@@ -26,10 +26,10 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 public class FooWeldJunitEnricher implements WeldJunitEnricher {
 
     @Override
-    public void enrich(Object testInstance, ExtensionContext context, Weld weld,
+    public void enrich(Class<?> testClass, ExtensionContext context, Weld weld,
             Builder weldInitiatorBuilder) {
-        if (WeldJunitEnricherTest.class.equals(testInstance.getClass())
-                || WeldJunitEnricherDisabledTest.class.equals(testInstance.getClass())) {
+        if (WeldJunitEnricherTest.class.equals(testClass)
+                || WeldJunitEnricherDisabledTest.class.equals(testClass)) {
             weld.addBeanClass(Foo.class);
         }
     }

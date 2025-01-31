@@ -16,7 +16,7 @@ import org.junit.jupiter.api.Test;
 public class MockBeanWithQualifiersTest {
 
     @WeldSetup
-    public WeldInitiator weld = WeldInitiator.from(AlternativeMockBeanTest.SimpleService.class)
+    public static WeldInitiator weld = WeldInitiator.from(AlternativeMockBeanTest.SimpleService.class)
             .addBeans(MockBean.builder().types(String.class).qualifiers(Meaty.Literal.INSTANCE).create(c -> "foo").build())
             .build();
 

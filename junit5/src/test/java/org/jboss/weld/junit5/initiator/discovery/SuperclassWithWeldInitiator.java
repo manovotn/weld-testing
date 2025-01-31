@@ -10,7 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 @ExtendWith(WeldJunit5Extension.class)
 public abstract class SuperclassWithWeldInitiator {
     @WeldSetup
-    public WeldInitiator weld = WeldInitiator
+    public static WeldInitiator weld = WeldInitiator
             .of(new Weld()
                     .addBeanClass(Foo.class));
 }

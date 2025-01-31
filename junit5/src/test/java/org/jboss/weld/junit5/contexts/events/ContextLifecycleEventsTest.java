@@ -37,7 +37,7 @@ import org.junit.jupiter.api.Test;
 public class ContextLifecycleEventsTest {
 
     @WeldSetup
-    public WeldInitiator weld = WeldInitiator.from(ContextLifecycleEventsObserver.class)
+    public static WeldInitiator weld = WeldInitiator.from(ContextLifecycleEventsObserver.class)
             .activate(RequestScoped.class, SessionScoped.class).build();
 
     @Test

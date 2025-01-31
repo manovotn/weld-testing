@@ -43,12 +43,12 @@ import org.junit.jupiter.api.Test;
 @EnableWeld
 public class MockInterceptorTest {
 
-    private List<String> aroundInvokes;
+    private static List<String> aroundInvokes;
 
-    private List<String> postConstructs;
+    private static List<String> postConstructs;
 
     @WeldSetup
-    public WeldInitiator weld = WeldInitiator.from(Foo.class).addBeans(
+    public static WeldInitiator weld = WeldInitiator.from(Foo.class).addBeans(
             MockInterceptor.withBindings(FooBinding.Literal.INSTANCE).aroundInvoke((ctx, b) -> {
                 aroundInvokes.add(b.getBeanClass().getName());
                 return ctx.proceed();
@@ -99,10 +99,10 @@ public class MockInterceptorTest {
     @Retention(RUNTIME)
     @Documented
     @InterceptorBinding
-    static @interface FooBinding {
+    @interface FooBinding {
 
         @SuppressWarnings("serial")
-        static final class Literal extends AnnotationLiteral<FooBinding> implements FooBinding {
+        final class Literal extends AnnotationLiteral<FooBinding> implements FooBinding {
 
             public static final Literal INSTANCE = new Literal();
 

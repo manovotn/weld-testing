@@ -34,6 +34,8 @@ public class ExtensionContextUtils {
     private static final String CONTAINER = "weldContainer";
     private static final String EXPLICIT_PARAM_INJECTION = "explicitParamInjection";
     private static final String WELD_ENRICHERS = "weldEnrichers";
+    private static final String CLOSEABLES = "autoCloseable";
+
 
     private static Namespace EXTENSION_NAMESPACE;
 
@@ -74,10 +76,28 @@ public class ExtensionContextUtils {
     }
 
     /**
-     * Stores {@link WeldInitiator} into provided {@link ExtensionContext.Store} based on provided {@link ExtensionContext}
+     * Stores {@link WeldInitiator} into {@link ExtensionContext.Store} based on provided {@link ExtensionContext}
      */
     public static void setInitiatorToStore(ExtensionContext context, WeldInitiator initiator) {
         getTestStore(context).put(INITIATOR, initiator);
+    }
+
+    /**
+     * Stores {@link AutoCloseable} into {@link ExtensionContext.Store} based on provided {@link ExtensionContext}.
+     * <p>
+     * Nested test classes are manually injected into, and we keep this reference to properly destroy them later.
+     */
+    public static void setAutoCloseableToStore(ExtensionContext context, AutoCloseable closeable) {
+        getTestStore(context).put(CLOSEABLES, closeable);
+    }
+
+    /**
+     * Stores {@link AutoCloseable} into {@link ExtensionContext.Store} based on provided {@link ExtensionContext}.
+     * <p>
+     * Each nested class we injected into is stored here so that we can properly destroy it later.
+     */
+    public static AutoCloseable getAutoCloseableFromStore(ExtensionContext context) {
+        return getTestStore(context).get(CLOSEABLES, AutoCloseable.class);
     }
 
     /**

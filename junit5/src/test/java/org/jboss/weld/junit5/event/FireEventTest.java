@@ -32,7 +32,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class FireEventTest {
 
     @WeldSetup
-    public WeldInitiator weld = WeldInitiator.of(DummyObserver.class);
+    public static WeldInitiator weld = WeldInitiator.of(DummyObserver.class);
 
     @Test
     public void testEventFired() {

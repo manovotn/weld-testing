@@ -57,6 +57,7 @@ import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.platform.commons.support.AnnotationSupport;
 import org.junit.platform.commons.support.HierarchyTraversalMode;
+import org.junit.platform.commons.support.ModifierSupport;
 import org.junit.platform.commons.util.CollectionUtils;
 import org.junit.platform.commons.util.Preconditions;
 
@@ -194,6 +195,12 @@ class ClassScanning {
                     .flatMap(ann -> stream(ann.value()))
                     .distinct()
                     .forEach(excludedBeanClasses::add);
+
+            for (Class<?> declaredClass : currClass.getDeclaredClasses()) {
+                if (ModifierSupport.isStatic(declaredClass) && hasBeanDefiningAnnotation(declaredClass)) {
+                    weld.addBeanClass(declaredClass);
+                }
+            }
 
             // discovery mode can only be set once; we use the first annotation we find
             if (!syntheticArchiveDiscoverySet) {

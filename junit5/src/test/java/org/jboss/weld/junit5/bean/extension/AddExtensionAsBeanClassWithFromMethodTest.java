@@ -31,7 +31,7 @@ import org.junit.jupiter.api.Test;
 public class AddExtensionAsBeanClassWithFromMethodTest {
 
     @WeldSetup
-    WeldInitiator weld = WeldInitiator.from(GoodOldBean.class, MyExtension.class).build();
+    static WeldInitiator weld = WeldInitiator.from(GoodOldBean.class, MyExtension.class).build();
 
     @Test
     public void testThatClassIsRecognizedAsExtension() {

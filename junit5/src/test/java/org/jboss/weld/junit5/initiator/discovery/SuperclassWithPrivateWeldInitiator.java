@@ -28,7 +28,7 @@ import org.jboss.weld.junit5.initiator.bean.Foo;
 public class SuperclassWithPrivateWeldInitiator {
 
     @WeldSetup
-    private WeldInitiator weld = WeldInitiator
+    private static WeldInitiator weld = WeldInitiator
             .of(new Weld()
                     .addBeanClass(Foo.class));
 }

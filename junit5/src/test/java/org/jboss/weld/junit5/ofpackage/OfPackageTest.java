@@ -32,7 +32,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 public class OfPackageTest {
 
     @WeldSetup
-    public WeldInitiator weld = WeldInitiator.ofTestPackage();
+    public static WeldInitiator weld = WeldInitiator.ofTestPackage();
 
     @Test
     public void testOfTestPackage() {

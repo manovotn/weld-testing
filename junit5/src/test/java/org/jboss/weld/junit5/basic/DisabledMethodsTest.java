@@ -29,7 +29,7 @@ import org.junit.jupiter.api.parallel.Isolated;
 public class DisabledMethodsTest {
 
     @WeldSetup
-    public WeldInitiator weld = WeldInitiator.of(Foo.class);
+    public static WeldInitiator weld = WeldInitiator.of(Foo.class);
 
     @BeforeEach
     public void tryUseWeldInBeforeEach() {

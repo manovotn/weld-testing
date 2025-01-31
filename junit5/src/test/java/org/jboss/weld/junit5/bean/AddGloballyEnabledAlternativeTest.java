@@ -26,7 +26,7 @@ import org.mockito.Mockito;
 public class AddGloballyEnabledAlternativeTest {
 
     @WeldSetup
-    public WeldInitiator weld = WeldInitiator.from(Bar.class)
+    public static WeldInitiator weld = WeldInitiator.from(Bar.class)
             .addBeans(createFooAlternativeBean(), createListBean())
             .build();
 

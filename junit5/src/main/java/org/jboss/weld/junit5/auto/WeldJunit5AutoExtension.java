@@ -21,8 +21,8 @@ import static java.util.stream.Collectors.joining;
 import static org.jboss.weld.junit5.ExtensionContextUtils.getExplicitInjectionInfoFromStore;
 
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import org.jboss.weld.environment.se.Weld;
 import org.jboss.weld.junit5.WeldInitiator;
@@ -75,17 +75,22 @@ public class WeldJunit5AutoExtension extends WeldJunit5Extension {
     @Override
     protected void weldInit(ExtensionContext context, Weld weld, WeldInitiator.Builder weldInitiatorBuilder) {
 
-        List<?> testInstances = context.getRequiredTestInstances().getAllInstances();
-        List<Class<?>> testClasses = testInstances.stream().map(Object::getClass).collect(Collectors.toList());
+        List<Class<?>> testClasses = new ArrayList<>();
+        Class<?> currentTestClass = context.getRequiredTestClass();
+        testClasses.add(currentTestClass);
+        while (currentTestClass.getEnclosingClass() != null) {
+            currentTestClass = currentTestClass.getEnclosingClass();
+            testClasses.add(currentTestClass);
+        }
+
 
         ClassScanning.scanForRequiredBeanClasses(testClasses, weld, getExplicitInjectionInfoFromStore(context));
 
         // Add the outer-most test class only because Weld would ignore inner, @Nested test classes anyway
         // due to their not meeting valid beans requirements for not having a no-arg constructor.
         // Note that getAllInstances above returns the tests "ordered from outermost to innermost".
-        Object outermostTestInstance = testInstances.get(0);
-        weld.addBeanClasses(outermostTestInstance.getClass());
-        weld.addExtension(new TestInstanceInjectionExtension<>(outermostTestInstance));
+        Class<?> outermostTestClass = testClasses.getLast();
+        weld.addBeanClasses(outermostTestClass);
 
         testClasses.stream()
                 .map(testClass -> AnnotationSupport.findRepeatableAnnotations(testClass, ActivateScopes.class))
