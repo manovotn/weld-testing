@@ -71,40 +71,32 @@
       <module>junit5</module>
       <module>spock</module>
       <module>junit-common</module>
+       <module>junit-rewrite</module>
    </modules>
 
    <dependencyManagement>
 
       <dependencies>
 
+          <!-- JUnit BOM file -->
+          <dependency>
+              <groupId>org.junit</groupId>
+              <artifactId>junit-bom</artifactId>
+              <version>${version.junit.jupiter}</version>
+              <type>pom</type>
+              <scope>import</scope>
+          </dependency>
+
+          <dependency>
+              <groupId>junit</groupId>
+              <artifactId>junit</artifactId>
+              <version>${version.junit4}</version>
+          </dependency>
+
          <dependency>
             <groupId>org.jboss.weld.se</groupId>
             <artifactId>weld-se-core</artifactId>
             <version>${version.weld}</version>
-         </dependency>
-
-         <dependency>
-            <groupId>junit</groupId>
-            <artifactId>junit</artifactId>
-            <version>${version.junit4}</version>
-         </dependency>
-
-         <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-api</artifactId>
-            <version>${version.junit.jupiter}</version>
-         </dependency>
-
-          <dependency>
-              <groupId>org.junit.jupiter</groupId>
-              <artifactId>junit-jupiter-params</artifactId>
-              <version>${version.junit.jupiter}</version>
-          </dependency>
-
-         <dependency>
-            <groupId>org.junit.jupiter</groupId>
-            <artifactId>junit-jupiter-engine</artifactId>
-            <version>${version.junit.jupiter}</version>
          </dependency>
 
          <dependency>

@@ -1,0 +1,17 @@
+---
+type: specs.openrewrite.org/v1beta/recipe
+name: org.jboss.weld.junit.JUnitRelocations
+displayName: Weld JUnit 5 to Weld JUnit Relocation
+description: Changes Weld JUnit 5 dependencies and packages to version agnostic Weld JUnit.
+recipeList:
+  - org.openrewrite.java.dependencies.ChangeDependency:
+      oldGroupId: org.jboss.weld
+      oldArtifactId: weld-junit5
+      newGroupId: org.jboss.weld
+      newArtifactId: weld-junit-jupiter
+      # TODO should be 6.0.0.Final once released
+      newVersion: 5.0.4-SNAPSHOT
+  - org.openrewrite.java.ChangePackage:
+      oldPackageName: org.jboss.weld.junit5
+      newPackageName: org.jboss.weld.junit
+      recursive: true
