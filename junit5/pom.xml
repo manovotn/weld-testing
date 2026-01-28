@@ -55,4 +55,32 @@
 
    </dependencies>
 
+   <build>
+      <plugins>
+         <plugin>
+            <groupId>org.openrewrite.maven</groupId>
+            <artifactId>rewrite-maven-plugin</artifactId>
+            <version>6.28.0</version>
+            <configuration>
+               <exportDatatables>true</exportDatatables>
+               <activeRecipes>
+                  <recipe>org.jboss.weld.junit.JUnitRelocations</recipe>
+               </activeRecipes>
+            </configuration>
+            <dependencies>
+               <dependency>
+                  <groupId>org.openrewrite.recipe</groupId>
+                  <artifactId>rewrite-java-dependencies</artifactId>
+                  <version>1.50.0</version>
+               </dependency>
+               <dependency>
+                  <groupId>org.jboss.weld</groupId>
+                  <artifactId>junit-rewrite</artifactId>
+                  <version>5.0.4-SNAPSHOT</version>
+               </dependency>
+            </dependencies>
+         </plugin>
+      </plugins>
+   </build>
+
 </project>
